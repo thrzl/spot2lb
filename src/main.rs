@@ -2,8 +2,8 @@ mod listenbrainz_models;
 
 use anyhow::anyhow;
 use chrono::{TimeDelta, Utc};
-use dotenvy_macro::dotenv;
-// use listenbrainz::raw::request::{ListenType, Payload, SubmitListens, TrackMetadata};
+use std::env;
+
 use listenbrainz_models::{AdditionalInfo, Payload, Scrobble, TrackMetadata};
 use reqwest::Client;
 use reqwest::header::HeaderMap;
@@ -243,6 +243,7 @@ impl Service {
                 .additional_info
                 .recording_mbid = Some(mapping.recording_mbid);
         }
+        println!("{}", serde_json::json!(listen.clone()));
 
         let res = self
             .client
@@ -303,12 +304,17 @@ async fn main() -> anyhow::Result<()> {
         .chain(std::io::stdout())
         .apply()?;
 
-    let creds = Credentials::from_env().unwrap();
+    let _ = dotenvy::dotenv(); // dont even bother unwrapping this should only error if the file isnt found
+
+    let creds = Credentials {
+        id: env::var("SPOTIFY_CLIENT_ID").expect("no spotify client id!"),
+        secret: Some(env::var("SPOTIFY_CLIENT_SECRET").expect("no spotify client secret!")),
+    };
     let refresh_token = Token {
         access_token: "".to_string(),
         expires_at: Some(Utc::now()),
         expires_in: TimeDelta::new(0, 0).unwrap(),
-        refresh_token: Some(dotenv!("RSPOTIFY_REFRESH_TOKEN").to_string()),
+        refresh_token: Some(env::var("SPOTIFY_REFRESH_TOKEN").expect("no spotify token!")),
         scopes: HashSet::new(),
     };
     let oauth = OAuth::default();
@@ -325,9 +331,12 @@ async fn main() -> anyhow::Result<()> {
     let mut headers = HeaderMap::new();
     headers.insert(
         "Authorization",
-        format!("Token {}", dotenv!("LISTENBRAINZ_TOKEN"))
-            .try_into()
-            .unwrap(),
+        format!(
+            "Token {}",
+            env::var("LISTENBRAINZ_TOKEN").expect("no listenbrainz token!")
+        )
+        .try_into()
+        .unwrap(),
     );
     let mut service = Service {
         client: Client::builder().default_headers(headers).build().unwrap(),
