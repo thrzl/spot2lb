@@ -60,12 +60,19 @@ impl Service {
     async fn run(&mut self) -> anyhow::Result<()> {
         loop {
             if let Some(playback) = self.fetch_spotify_now_playing().await? {
-                let raw_item = playback.item.clone().unwrap();
+                let raw_item_opt = playback.item.clone();
+                if raw_item_opt.is_none() {
+                    error!("spotify playback item was none; perhaps it's a DJ dialogue?");
+                    sleep(Duration::from_secs(5)).await;
+                    continue;
+                }
+                let raw_item = raw_item_opt.unwrap();
                 let track = if let PlayableItem::Track(track) = raw_item {
                     track
                 } else {
                     error!("skipping non-track item");
-                    return Err(anyhow!("track type was episode"));
+                    sleep(Duration::from_secs(5)).await;
+                    continue;
                 };
 
                 let track_id = &track.id.unwrap().to_string();
