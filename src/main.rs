@@ -231,7 +231,8 @@ impl Service {
                     .artists
                     .iter()
                     .map(|artist| artist.name.to_string())
-                    .collect(),
+                    .collect::<Vec<String>>()
+                    .join(", "),
                 mbid_mapping_track.album.name,
             )
             .await;
